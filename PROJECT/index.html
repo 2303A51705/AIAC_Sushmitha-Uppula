@@ -1,1 +1,180 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Smart Traffic Multi-Agent AI System</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;700&family=Syne:wght@400;700;800&display=swap" rel="stylesheet"/>
+<link rel="stylesheet" href="style.css"/>
+</head>
+<body>
 
+<!-- ── HEADER ── -->
+<header>
+  <div class="header-left">
+    <div class="logo-icon">⬡</div>
+    <div>
+      <div class="logo-title">SMART TRAFFIC AI</div>
+      <div class="logo-sub">Multi-Agent Confidence-Based Arbitration System</div>
+    </div>
+  </div>
+  <div class="header-right">
+    <div class="api-badge" id="apiBadge">
+      <span class="api-dot" id="apiDot"></span>
+      <span id="apiLabel">CHECKING API…</span>
+    </div>
+    <div class="clock" id="clock">--:--:--</div>
+  </div>
+</header>
+
+<!-- ── FORMULA STRIP ── -->
+<div class="formula-strip">
+  <div class="fp">
+    <span class="fl">CONFIDENCE</span>
+    <span class="fe">= 0.5 × urgency + 0.3 × (speed ÷ 100) + 0.2 × type_weight</span>
+  </div>
+  <span class="farr">→</span>
+  <div class="fp">
+    <span class="fl">PRIORITY</span>
+    <span class="fe">= confidence × urgency</span>
+  </div>
+  <span class="farr">→</span>
+  <div class="fp">
+    <span class="fl">DECISION</span>
+    <span class="fe">= argmax(priority)</span>
+  </div>
+</div>
+
+<!-- ── LAYOUT ── -->
+<div class="layout">
+
+  <!-- SIDEBAR -->
+  <aside class="sidebar">
+
+    <div class="card">
+      <div class="card-title">➕ ADD AGENT</div>
+      <div class="field">
+        <label>TYPE</label>
+        <select id="addType">
+          <option value="Ambulance">🚑 Ambulance</option>
+          <option value="Bus">🚌 Bus</option>
+          <option value="Car" selected>🚗 Car</option>
+          <option value="Bike">🏍 Bike</option>
+        </select>
+      </div>
+      <div class="field">
+        <label>SPEED (km/h)</label>
+        <input type="number" id="addSpeed" value="60" min="1" max="200"/>
+      </div>
+      <div class="field">
+        <label>URGENCY — <span id="urgDisp" class="accent">7</span>/10</label>
+        <input type="range" id="addUrgency" min="1" max="10" value="7"
+               oninput="document.getElementById('urgDisp').textContent=this.value"/>
+      </div>
+      <button class="btn btn-add" onclick="UI.addAgent()">+ ADD AGENT</button>
+    </div>
+
+    <div class="card">
+      <div class="card-title">⚙ SIMULATION</div>
+      <div class="field">
+        <label>AUTO-GENERATE AGENTS</label>
+        <div class="row-group">
+          <input type="number" id="numAuto" value="4" min="1" max="12" style="width:60px"/>
+          <button class="btn btn-sec" onclick="UI.autoGenerate()">⚡ GENERATE</button>
+        </div>
+      </div>
+      <button class="btn btn-run" id="runBtn" onclick="UI.runSimulation()">▶ RUN SIMULATION</button>
+      <button class="btn btn-reset" onclick="UI.resetAll()">↺ RESET ALL</button>
+    </div>
+
+    <div class="card">
+      <div class="card-title">⚖ TYPE WEIGHTS</div>
+      <div class="weight-list">
+        <div class="wl-row"><span class="wl-type t-amb">🚑 Ambulance</span><span class="wl-w">1.0</span></div>
+        <div class="wl-row"><span class="wl-type t-bus">🚌 Bus</span><span class="wl-w">0.7</span></div>
+        <div class="wl-row"><span class="wl-type t-car">🚗 Car</span><span class="wl-w">0.5</span></div>
+        <div class="wl-row"><span class="wl-type t-bike">🏍 Bike</span><span class="wl-w">0.4</span></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">📋 EVENT LOG</div>
+      <div class="logbox" id="logBox"></div>
+    </div>
+
+  </aside>
+
+  <!-- MAIN -->
+  <main class="main">
+
+    <!-- Stats -->
+    <div class="statsbar">
+      <div class="stat"><div class="sv" id="stAgents">0</div><div class="sl">AGENTS</div></div>
+      <div class="stat"><div class="sv" id="stSims">0</div><div class="sl">SIMULATIONS</div></div>
+      <div class="stat"><div class="sv" id="stWinner">—</div><div class="sl">LAST WINNER</div></div>
+      <div class="stat"><div class="sv" id="stConf">—</div><div class="sl">TOP CONFIDENCE</div></div>
+      <div class="stat"><div class="sv" id="stPri">—</div><div class="sl">TOP PRIORITY</div></div>
+      <div class="stat"><div class="sv" id="stMode">FRONTEND</div><div class="sl">COMPUTE MODE</div></div>
+    </div>
+
+    <!-- Agent Table -->
+    <div class="section">
+      <div class="section-hdr">
+        <div class="section-title">AGENT PRIORITY TABLE</div>
+        <div class="section-hint" id="tblHint">Add agents, then click RUN SIMULATION.</div>
+      </div>
+      <div class="tbl-wrap">
+        <table id="agentTable">
+          <thead>
+            <tr>
+              <th>RANK</th>
+              <th>ID</th>
+              <th>TYPE</th>
+              <th>SPEED<br/><small>km/h</small></th>
+              <th>URGENCY<br/><small>/10</small></th>
+              <th>TYPE W.</th>
+              <th>CONFIDENCE<br/><small>0.5u+0.3s+0.2w</small></th>
+              <th>PRIORITY<br/><small>conf×urgency</small></th>
+              <th>SIGNAL</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody id="agentTbody">
+            <tr class="empty-row">
+              <td colspan="10">
+                <div class="empty-st">
+                  <div style="font-size:2rem">🚦</div>
+                  No agents yet — add agents or use auto-generate
+                </div>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Decision -->
+    <div class="section" id="decSection" style="display:none">
+      <div class="section-title">🏆 ARBITRATION DECISION</div>
+      <div class="decision-panel" id="decPanel"></div>
+    </div>
+
+    <!-- Canvas -->
+    <div class="section">
+      <div class="section-title">🗺 TRAFFIC INTERSECTION — LIVE</div>
+      <canvas id="trafficCanvas" class="canvas"></canvas>
+    </div>
+
+  </main>
+
+</div>
+
+<!-- Toast -->
+<div class="toast" id="toast"></div>
+<!-- Loading -->
+<div class="loading-overlay" id="loadingOverlay"><div class="spinner"></div></div>
+
+<script src="app.js"></script>
+</body>
+</html>
